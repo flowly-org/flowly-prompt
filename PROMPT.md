@@ -232,6 +232,21 @@ estimate, busy minutes from timed events (merged overlaps, **plus travel time**,
 `GET /api/my/search/?q=` across visible tasks (title, description, comments), projects, templates and wiki pages,
 ranked; opened with **Ctrl/Cmd+K** as a palette with type icons and keyboard navigation.
 
+### 7.9 Custom attributes
+
+- `Attribute(workspace, project?, key, value)`: free facts for Flo (a client's email, contract terms, tone, repo). A
+  project's value overrides the workspace's for the same key. Keys are slugged (`client_email`), start with a letter,
+  and can't be words bulk-add reads as dates (`today`, weekdays…). `/workspaces/<id>/attributes/` (`?project=`):
+  members read, owners/admins write. Edited in workspace settings and per project (with inherited ones and
+  "Override for this project").
+- In a task, `{{key}}` is a **placeholder**: the stored text keeps it; the task API returns `title`/`description`
+  filled in (titles flattened and capped at 120 chars per value) plus `title_template`/`description_template` with
+  the raw text, which the edit form uses. Values load once per workspace per request.
+- `@key` (not inside an email) **points Flo at** an attribute: the task API lists `mentions` [{key, value}], shown
+  under the notes. Flo's task lines include the attributes a task uses; its workspace overview lists every
+  workspace's and project's attributes; the delegation agent gets them as context; integrations send the filled-in
+  text while change detection keeps the stored one. The task dialog offers chips for every usable attribute.
+
 ---
 
 ## 8. My day and the board
@@ -326,7 +341,18 @@ original event.
   to reach; one **in another town** takes twice that; online events, events without an address and all-day events
   need none.
 - Travel counts as busy time **before and after** the event, in the day load and in time blocking; the event API
-  returns `travel` (`in_town|away|""`), `travel_minutes`, `leave_at`. Flo's brief mentions when to leave.
+  returns `travel` (`in_town|away|""`), `travel_minutes`, `travel_source` (`driving|fixed|""`), `leave_at`. Flo's
+  brief mentions when to leave.
+- **Real driving time (opt-in, `focus.travel_mode = fixed|driving`)**: the worker geocodes the first home and each
+  upcoming (14 days) in-town or away appointment with **Nominatim** and routes it with **OSRM**, storing
+  `CalendarEvent.drive_minutes` with `drive_key` (hash of home + location) so a change recomputes it; pages never call
+  the network. Travel = drive + 5 min parking, rounded up to 5; fixed estimate until known or when there's no route.
+  Fair use of the public servers: ≤ 1 Nominatim request/s, a descriptive User-Agent, every address cached
+  (`GeoPlace`, not-found retried after 7 days), ~12 routes per minute overall; outages aren't cached. Geocoding asks
+  for 5 candidates biased to home (viewbox) and accepts only one in a **town named in the address** (city, town,
+  village, suburb… never county/state: Italian provinces share their capital's name); otherwise "not found".
+  Instance settings `NOMINATIM_URL`, `OSRM_URL`, `OSRM_PROFILE` (on-premises servers on private addresses allowed);
+  admin check "Maps" geocodes and routes a test trip.
 
 ### 11.5 Appointment briefing
 
@@ -599,6 +625,17 @@ checksums from the public releases repository. Flo can send download links (`app
   switch, add, sign out, remove; existing single-server sessions migrate to the flowly.net entry.
 
 ---
+
+## 24b. Browser extension (flowly-chrome)
+
+Manifest V3, plain JavaScript, no build step. Options: Flowly address (API found like the mobile app), a personal
+token (`flw_…`), the user's own OpenRouter key and model (default `google/gemini-2.5-flash`); host permission requested
+only for that server (OpenRouter is declared). The popup reads the selection or the page's main text (≤ 24k chars)
+when the user clicks, asks the model for `{"tasks": [{title, date, minutes, priority, notes}]}` (only the reader's own
+actions; no past dates; ≤ 20), shows them for review (untick, edit title and date, pick workspace and project), then
+creates them in one `tasks/bulk/` call assigned to the user, "high" mapped to the workspace's top priority, notes
+ending with the source page's title and URL. Right-click a selection → "Send to Flowly" opens the same review in a
+window. CI checks and zips it; `v*` tags publish the zip.
 
 ## 25. Guide and help
 
