@@ -50,7 +50,7 @@ The reference code lives at `github.com/flowly-org`: `flowly-backend` (Django AP
 - Python 3.12, **Django 5.2**, **Django REST Framework**, **PostgreSQL 16**, `djangorestframework-simplejwt`
   (access + refresh tokens), `django-filter`, `drf-spectacular` (`/api/schema/`, `/api/docs/`), `django-cors-headers`,
   `whitenoise`, `requests`, `cryptography`, `PyJWT`, `lxml`, `pypdf`, `icalendar`, `recurring-ical-events`,
-  `django-storages[s3]` for attachments (local disk fallback).
+  `django-storages[s3]` for attachments (local disk fallback: `ATTACHMENTS_DIR`, served through 5-minute signed links).
 - One Django project `config` and apps: `accounts`, `workspaces`, `tasks`, `timetracking`, `integrations`,
   `concierge`, `calendars`, `delegation`, `wiki`, `donetick`, `imports`, `insights`, `agile`, `payments`,
   `mcpauth`, `mcpserver`, `sso`, `instance`.
@@ -530,6 +530,14 @@ Kinds:
   title, text)` for search; Flo and the delegation agent use it as team knowledge.
 - **Donetick** (self-hosted chores): workspace/project integration or personal account; chores become tasks, done ⇄
   done, write-back of renames/dates, per-label routes to workspaces/projects, polling + webhook, outbox with retries.
+- **Stairway** (an MCP server that runs coding agents in folders on a machine of yours; secret = its token): from
+  the task dialog, "Work on it in Stairway" creates an experiment `flowly-<ref>` briefed with the task (title, notes,
+  checklist, attributes, discussion, links, extra instructions; write files with file tools, leave results in
+  ./deliverables, end with a summary). `StairwayRun(task, experiment, status working|waiting|review|failed|stopped,
+  last_reply, waiting_for, attachment_ids)`. Stairway calls back signed (HMAC) on each reply (→ a comment; the
+  worker zips ./deliverables into the task's attachments, replacing the previous batch, and notifies) and when the
+  agent asks for permission (→ "Waiting for your OK" with the request, Allow/Refuse). Follow-ups, Stop, links to the
+  session and to the folder in VS Code.
 - **OpenRouter** / **OpenAI-compatible endpoint** (Enterprise): the workspace's own AI provider.
 - **Imports**: Trello board JSON and Asana CSV or token + project link; lists/sections become tags, checklists,
   due dates, members by name/email, comments; re-imports add only what's new (`ImportRun.items`).
